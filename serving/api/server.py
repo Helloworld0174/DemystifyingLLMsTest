@@ -17,8 +17,9 @@ from utils.logging_utils import get_logger
 logger = get_logger("server")
 
 
-def create_handler_class(router: RouteHandler):
+def create_handler_class(router: RouteHandler, cors_allowed_origins=None):
     """Factory to create a BaseHTTPRequestHandler bound to a specific RouteHandler."""
+    allowed_origins = ["*"] if cors_allowed_origins is None else cors_allowed_origins
 
     class TransformerHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         def _send_json_response(self, status_code: int, data: dict):
@@ -26,7 +27,11 @@ def create_handler_class(router: RouteHandler):
             self.send_response(status_code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
-            self.send_header("Access-Control-Allow-Origin", "*")
+            origin = self.headers.get("Origin", "")
+            if "*" in allowed_origins:
+                self.send_header("Access-Control-Allow-Origin", "*")
+            elif origin in allowed_origins:
+                self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.end_headers()
@@ -34,7 +39,11 @@ def create_handler_class(router: RouteHandler):
 
         def do_OPTIONS(self):
             self.send_response(204)
-            self.send_header("Access-Control-Allow-Origin", "*")
+            origin = self.headers.get("Origin", "")
+            if "*" in allowed_origins:
+                self.send_header("Access-Control-Allow-Origin", "*")
+            elif origin in allowed_origins:
+                self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.end_headers()
@@ -83,8 +92,8 @@ class TransformerServer:
 
     def start(self, background: bool = False) -> None:
         """Start the HTTP server on configured host and port."""
-        handler_cls = create_handler_class(self.route_handler)
-        self._server = http.server.HTTPServer((self.config.host, self.config.port), handler_cls)
+        handler_cls = create_handler_class(self.route_handler, self.config.cors_allowed_origins)
+        self._server = http.server.ThreadingHTTPServer((self.config.host, self.config.port), handler_cls)
         logger.info(f"Starting stdlib HTTP server at http://{self.config.host}:{self.config.port}")
 
         if background:

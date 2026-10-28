@@ -17,6 +17,8 @@ class Dropout(nn.Module):
 
     def __init__(self, p: float = 0.1):
         super().__init__()
+        if not 0.0 <= p < 1.0:
+            raise ValueError("dropout probability must be in [0, 1)")
         self.p = p
         self.dropout = nn.Dropout(p=p)
 

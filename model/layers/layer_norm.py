@@ -47,6 +47,8 @@ class LayerNorm(nn.Module):
             self.d_model = getattr(cfg, "d_model", 768)
 
         self.eps = eps if eps is not None else getattr(cfg, "layer_norm_eps", 1e-5)
+        if self.eps <= 0:
+            raise ValueError("eps must be positive")
 
         self.weight = nn.Parameter(torch.ones(self.d_model))
         self.bias = nn.Parameter(torch.zeros(self.d_model))
@@ -61,10 +63,8 @@ class LayerNorm(nn.Module):
         Returns:
             Normalized tensor of same shape.
         """
-        # mean = x.mean(dim=-1, keepdim=True)
-        # var = x.var(dim=-1, keepdim=True, unbiased=False)
-        mean = x.mean(dim=0, keepdim=True)
-        var = x.var(dim=0, keepdim=True, unbiased=False)
+        mean = x.mean(dim=-1, keepdim=True)
+        var = x.var(dim=-1, keepdim=True, unbiased=False)
 
         x_norm = (x - mean) / torch.sqrt(var + self.eps)
         return self.weight * x_norm + self.bias

@@ -5,6 +5,8 @@ from typing import Optional, Tuple, List
 
 class KVCache:
     def __init__(self, num_layers: int):
+        if num_layers <= 0:
+            raise ValueError("num_layers must be positive")
         self.num_layers = num_layers
         self.k_cache: List[Optional[torch.Tensor]] = [None] * num_layers
         self.v_cache: List[Optional[torch.Tensor]] = [None] * num_layers
@@ -19,12 +21,16 @@ class KVCache:
         Update the key and value cache for a given layer.
         key, value shape: (batch_size, num_heads, seq_len, head_dim)
         """
+        if not 0 <= layer_idx < self.num_layers:
+            raise IndexError(f"layer_idx {layer_idx} is outside cache with {self.num_layers} layers")
+        if key.shape[:-2] != value.shape[:-2] or key.shape[-2] != value.shape[-2]:
+            raise ValueError("key and value cache tensors must match in batch, heads, and sequence dimensions")
         if self.k_cache[layer_idx] is None:
             self.k_cache[layer_idx] = key
             self.v_cache[layer_idx] = value
         else:
-            self.k_cache[layer_idx] = key
-            self.v_cache[layer_idx] = value
+            self.k_cache[layer_idx] = torch.cat((self.k_cache[layer_idx], key), dim=-2)
+            self.v_cache[layer_idx] = torch.cat((self.v_cache[layer_idx], value), dim=-2)
 
         return self.k_cache[layer_idx], self.v_cache[layer_idx]
 
